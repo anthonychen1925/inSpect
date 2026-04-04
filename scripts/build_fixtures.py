@@ -64,7 +64,7 @@ DISTRACTORS = {
     "lidocaine":     ["CCN(CC)CC(=O)Nc1ccccc1", "CCN(CC)CC(=O)Nc1c(C)cccc1", "CCNCC(=O)Nc1c(C)cccc1C", "CCN(CC)C(=O)CNc1c(C)cccc1C"],
     "quinine":       ["COc1ccc2nccc(c2c1)[C@H](O)[C@H]3CC[N@@]4CC[C@@H](C=C)[C@H](C3)C4", "COc1ccc2nccc(C(O)C3CCN4CCC(C=C)C(C3)C4)c2c1", "OC(c1ccnc2ccccc12)C1CCN2CCC(C=C)C(C1)C2", "COc1ccc2ncc(C(O)C3CCN4CCC(C=C)CC34)c2c1"],
     "penicillin_g":  ["CC1(C)SC2C(NC(=O)Cc3ccccc3)C(=O)N2C1C(=O)O", "CC1(C)SC2C(NC(=O)CC3=CC=CC=C3)C(=O)N2C1C(=O)[O-]", "CC1(C)S[C@@H]2[C@H](NC(=O)c3ccccc3)C(=O)N2[C@H]1C(=O)O", "CC1(C)SC2C(N)C(=O)N2C1C(=O)O"],
-    "ethanol":       ["CCCO", "CCO", "OCC", "COCO"],
+    "ethanol":       ["CCCO", "CO", "OCC(C)O", "COCO"],
     "benzene":       ["Cc1ccccc1", "c1ccc(F)cc1", "c1cccnc1", "c1ccoc1"],
     "acetone":       ["CCC=O", "CC(=O)CC", "CC(O)=O", "CCCO"],
     "toluene":       ["c1ccc(CC)cc1", "Cc1cccc(C)c1", "Cc1cccnc1", "Cc1ccc(F)cc1"],

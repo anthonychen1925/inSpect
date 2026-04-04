@@ -48,10 +48,14 @@ def generate_conformers(mol, n_conformers: int = 10, ff: str = "MMFF94",
         return None
     try:
         mol = Chem.AddHs(mol)
-        params = AllChem.EmbedParameters()
-        params.randomSeed = random_seed
-        AllChem.EmbedMultipleConfs(mol, numConfs=n_conformers, params=params,
-                                   pruneRmsThresh=prune_rms_thresh)
+        cids = AllChem.EmbedMultipleConfs(
+            mol,
+            numConfs=n_conformers,
+            randomSeed=random_seed,
+            pruneRmsThresh=prune_rms_thresh,
+        )
+        if not cids:
+            return None
         if ff == "MMFF94":
             AllChem.MMFFOptimizeMoleculeConfs(mol)
         else:
@@ -64,8 +68,6 @@ def mol_to_sdf_string(mol) -> Optional[str]:
     if not RDKIT_AVAILABLE or mol is None:
         return None
     try:
-        from rdkit.Chem import Chem
-        writer = Chem.SDWriter.__new__(Chem.SDWriter)
         import io
         buf = io.StringIO()
         w = Chem.SDWriter(buf)

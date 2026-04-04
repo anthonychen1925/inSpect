@@ -17,7 +17,6 @@ def bin_spectrum(
     if log_transform:
         intensity = np.log1p(intensity.astype(np.float64)).astype(np.float32)
 
-    bin_edges = np.linspace(axis_min, axis_max, n_bins + 1)
     for x, y in zip(axis, intensity):
         if axis_min <= x < axis_max:
             idx = int((x - axis_min) / (axis_max - axis_min) * n_bins)

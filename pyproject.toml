@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=61.0"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "diamondhacks"
@@ -11,6 +11,7 @@ dependencies = [
     "numpy",
     "pandas",
     "scikit-learn",
+    "rdkit-pypi>=2022.9.1",
     "selfies>=2.1",
     "pyyaml",
     "omegaconf",
@@ -23,3 +24,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest", "wandb"]
+mist = ["mist @ git+https://github.com/samgoldman97/mist.git@master"]
+
+[tool.setuptools.packages.find]
+include = ["src*", "backend*"]
