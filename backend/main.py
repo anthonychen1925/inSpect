@@ -61,14 +61,6 @@ def predict(req: PredictRequest):
     if req.ms_csv:  modalities_used.append("ms")
     if req.ir_csv:  modalities_used.append("ir")
 
-    if not modalities_used:
-        raise HTTPException(400, "At least one spectrum must be provided.")
-
-    warning = None
-    if len(modalities_used) < 3:
-        missing = [m for m in ["nmr", "ms", "ir"] if m not in modalities_used]
-        warning = f"{', '.join(missing).upper()} not provided; results may be less accurate."
-
     # Demo mode: return fixture data
     if DEMO_MODE or req.demo_molecule:
         mol_name = req.demo_molecule or _guess_molecule(req)
@@ -76,13 +68,40 @@ def predict(req: PredictRequest):
         if fixture_path.exists():
             with open(fixture_path) as f:
                 fixture = json.load(f)
-            # Return the variant matching available modalities
-            variant_key = "_".join(sorted(modalities_used)) if modalities_used else "nmr"
+            
+            # If no modalities specified, infer from fixture variants or use default
+            if not modalities_used:
+                variants = fixture.get("variants", {})
+                if variants:
+                    # Use first available variant
+                    modalities_used = list(variants.keys())[0].split("_")
+                else:
+                    modalities_used = ["nmr"]  # default
+            
+            # Return the variant matching available modalities, but merge conformers from top-level candidates
+            variant_key = "_".join(sorted(modalities_used))
             candidates_data = fixture.get("variants", {}).get(variant_key,
                               fixture.get("candidates", []))
-            candidates = [Candidate(**c) for c in candidates_data[:req.top_k]]
+            
+            # Merge in top-level conformers if present (variants may have empty SDFs)
+            top_level_candidates = fixture.get("candidates", [])
+            candidates_list = []
+            for i, c in enumerate(candidates_data[:req.top_k]):
+                candidate_dict = dict(c)  # Copy to avoid modifying fixture
+                # If this candidate's conformer is empty, try to get it from top-level
+                if (not candidate_dict.get("conformer_sdf") and 
+                    i < len(top_level_candidates) and 
+                    top_level_candidates[i].get("conformer_sdf")):
+                    candidate_dict["conformer_sdf"] = top_level_candidates[i]["conformer_sdf"]
+                candidates_list.append(Candidate(**candidate_dict))
+            
+            warning = None
+            if len(modalities_used) < 3:
+                missing = [m for m in ["nmr", "ms", "ir"] if m not in modalities_used]
+                warning = f"{', '.join(missing).upper()} not provided; results may be less accurate."
+            
             return PredictResponse(
-                candidates=candidates,
+                candidates=candidates_list,
                 modalities_used=modalities_used,
                 warning=warning,
                 demo_mode=True,
@@ -92,9 +111,16 @@ def predict(req: PredictRequest):
         if all_fixtures:
             with open(all_fixtures[0]) as f:
                 fixture = json.load(f)
+            if not modalities_used:
+                modalities_used = ["nmr"]
             candidates = [Candidate(**c) for c in fixture.get("candidates", [])[:req.top_k]]
+            warning = "Fixture not found; returning fallback data."
             return PredictResponse(candidates=candidates, modalities_used=modalities_used,
                                    warning=warning, demo_mode=True)
+
+    # Live mode: require at least one spectrum
+    if not modalities_used:
+        raise HTTPException(400, "At least one spectrum must be provided.")
 
     # Live mode: MIST inference (placeholder — wire in after hackathon setup)
     raise HTTPException(501, "Live inference not yet configured. Set DEMO_MODE=true.")
