@@ -7,8 +7,6 @@ interface MolViewerProps {
   onClose: () => void;
   smiles: string;
   name: string;
-  score: number;
-  rank: number;
 }
 
 export default function MolViewer({
@@ -16,8 +14,6 @@ export default function MolViewer({
   onClose,
   smiles,
   name,
-  score,
-  rank,
 }: MolViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);
@@ -59,7 +55,7 @@ export default function MolViewer({
                 {name}
               </div>
               <div className="text-xs tracking-[0.2em] uppercase text-neutral-500 mt-1">
-                Rank #{rank} &middot; Confidence {score.toFixed(2)}
+                Predicted Structure
               </div>
               <div className="text-xs mt-1 font-mono break-all text-neutral-500">
                 {smiles}

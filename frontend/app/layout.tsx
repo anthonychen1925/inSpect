@@ -19,18 +19,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-black text-white font-mono">
-        <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-5 bg-black/80 backdrop-blur-md border-b border-white/5">
-          <div className="text-sm font-bold tracking-[0.3em] uppercase">
-            SpectraStruct
+      <body className="min-h-full flex flex-col bg-[#050505] text-white font-mono">
+        <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-4 bg-[#050505]/80 backdrop-blur-xl border-b border-white/[0.06]">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-white/80" />
+            <div className="text-sm font-bold tracking-[0.3em] uppercase">
+              SpectraStruct
+            </div>
           </div>
-          <div className="flex items-center gap-6">
-            <span className="text-xs text-neutral-500 tracking-wide uppercase">
-              DiamondHacks 2025
+          <div className="flex items-center gap-4">
+            <span className="text-[10px] text-neutral-600 tracking-[0.15em] uppercase">
+              DiamondHacks 2026
             </span>
           </div>
         </header>
-        <main className="flex-1 pt-20">{children}</main>
+        <main className="flex-1 pt-16">{children}</main>
       </body>
     </html>
   );

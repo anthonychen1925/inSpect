@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import FileUpload from "./components/FileUpload";
 import MolViewer from "./components/MolViewer";
@@ -56,7 +56,7 @@ function Inline3DViewer({ sdf }: { sdf: string }) {
       if (!mounted || !containerRef.current) return;
       containerRef.current.innerHTML = "";
       const viewer = $3Dmol.createViewer(containerRef.current, {
-        backgroundColor: "black",
+        backgroundColor: "#050505",
       });
       viewer.addModel(sdf, "sdf");
       viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: "whiteCarbon" } });
@@ -72,7 +72,7 @@ function Inline3DViewer({ sdf }: { sdf: string }) {
   return (
     <div
       ref={containerRef}
-      style={{ width: "100%", height: "320px", position: "relative" }}
+      style={{ width: "100%", height: "360px", position: "relative" }}
     />
   );
 }
@@ -146,87 +146,104 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       {/* Hero */}
-      <section className="relative px-8 pt-16 pb-20 flex flex-col items-center text-center">
-        <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-4 uppercase">
-          Spectra
-          <span className="text-neutral-500">Struct</span>
-        </h1>
-        <p className="text-sm text-neutral-500 max-w-md tracking-wide leading-relaxed font-mono">
-          Upload NMR and/or MS spectra. Get candidate molecules with
-          3D conformers.
-        </p>
-
-        <div className="mt-6 flex items-center gap-2">
-          <div
-            className={`w-1.5 h-1.5 rounded-full ${
-              apiStatus === "online"
-                ? "bg-green-500"
+      <section className="relative px-8 pt-20 pb-16 flex flex-col items-center text-center hero-grid">
+        <div className="relative z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/[0.08] bg-white/[0.02] mb-8">
+            <div
+              className={`w-1.5 h-1.5 rounded-full ${
+                apiStatus === "online"
+                  ? "bg-emerald-400"
+                  : apiStatus === "offline"
+                  ? "bg-red-400"
+                  : "bg-amber-400 animate-pulse"
+              }`}
+            />
+            <span className="text-[10px] tracking-[0.15em] uppercase text-neutral-500">
+              {apiStatus === "online"
+                ? "System Online"
                 : apiStatus === "offline"
-                ? "bg-red-500"
-                : "bg-yellow-500 animate-pulse"
-            }`}
-          />
-          <span className="text-[10px] tracking-[0.2em] uppercase text-neutral-600">
-            {apiStatus === "online"
-              ? "API Online"
-              : apiStatus === "offline"
-              ? "API Offline -- start backend"
-              : "Checking..."}
-          </span>
+                ? "Backend Offline"
+                : "Connecting..."}
+            </span>
+          </div>
+
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-5">
+            <span className="text-white">Spectra</span>
+            <span className="text-neutral-600">Struct</span>
+          </h1>
+
+          <p className="text-sm text-neutral-500 max-w-lg leading-relaxed">
+            Upload NMR or MS spectral data and predict molecular structures
+            with 3D conformer visualization.
+          </p>
         </div>
       </section>
 
-      <div className="max-w-5xl mx-auto px-8 pb-24">
-        {/* Input */}
-        <section className="mb-16">
-          <div className="text-xs tracking-[0.3em] uppercase text-neutral-500 mb-6">
-            01 / Input Spectra
+      <div className="max-w-4xl mx-auto px-8 pb-24">
+        {/* Upload Section */}
+        <section className="mb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-600 font-medium">
+              Upload Spectra
+            </div>
+            <div className="flex-1 h-px bg-white/[0.06]" />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
             <FileUpload label="NMR Spectrum" onFile={setNmrFile} file={nmrFile} />
             <FileUpload label="MS Spectrum" onFile={setMsFile} file={msFile} />
           </div>
+        </section>
 
-          {/* Demo picker */}
-          <div className="mb-8">
-            <div className="text-xs tracking-[0.2em] uppercase text-neutral-600 mb-3">
-              Or select a demo molecule
+        {/* Demo Molecules */}
+        <section className="mb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-600 font-medium">
+              Demo Molecules
             </div>
-            <div className="flex flex-wrap gap-2">
-              {demoMolecules.map((mol) => (
-                <button
-                  key={mol.name}
-                  className={`px-3 py-1.5 text-xs border rounded transition-all ${
-                    demoMolecule === mol.name
-                      ? "border-white/40 text-white bg-white/5"
-                      : "border-white/10 text-neutral-500 hover:border-white/20 hover:text-neutral-300"
-                  }`}
-                  onClick={() => handleDemoSelect(mol.name)}
-                >
-                  {mol.display_name}
-                </button>
-              ))}
-            </div>
+            <div className="flex-1 h-px bg-white/[0.06]" />
           </div>
 
-          {/* Predict */}
+          <div className="flex flex-wrap gap-2">
+            {demoMolecules.map((mol) => (
+              <button
+                key={mol.name}
+                className={`mol-pill px-3.5 py-2 text-xs border rounded-lg transition-all ${
+                  demoMolecule === mol.name
+                    ? "active border-white/30 text-white bg-white/[0.06]"
+                    : "border-white/[0.06] text-neutral-500 hover:border-white/15 hover:text-neutral-300 hover:bg-white/[0.02]"
+                }`}
+                onClick={() => handleDemoSelect(mol.name)}
+              >
+                <span>{mol.display_name}</span>
+                {demoMolecule === mol.name && (
+                  <span className="ml-2 text-neutral-500 text-[10px]">{mol.formula}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Predict Button */}
+        <div className="flex justify-center mb-16">
           <button
             onClick={handlePredict}
             disabled={loading || apiStatus !== "online"}
-            className={`px-8 py-3 text-sm tracking-[0.2em] uppercase border transition-all ${
+            className={`btn-glow px-10 py-3.5 text-sm tracking-[0.2em] uppercase rounded-lg border transition-all ${
               loading
-                ? "border-white/10 text-neutral-600 cursor-wait"
-                : "border-white text-white hover:bg-white hover:text-black"
+                ? "border-white/[0.06] text-neutral-600 cursor-wait loading-shimmer"
+                : apiStatus !== "online"
+                ? "border-white/[0.06] text-neutral-700 cursor-not-allowed"
+                : "border-white/20 text-white hover:bg-white hover:text-black hover:border-white"
             }`}
           >
             {loading ? "Analyzing..." : "Predict Structure"}
           </button>
-        </section>
+        </div>
 
         {/* Error */}
         {error && (
-          <div className="mb-8 px-4 py-3 border border-red-500/30 rounded text-sm text-red-400">
+          <div className="animate-fade-up mb-8 px-5 py-4 border border-red-500/20 rounded-lg text-sm text-red-400/80 bg-red-500/[0.03]">
             {error}
           </div>
         )}
@@ -234,92 +251,69 @@ export default function Home() {
         {/* Results */}
         {results && results.candidates.length > 0 && (() => {
           const prediction = results.candidates[0];
-          const confPercent = prediction.score * 100;
-          const confColor =
-            confPercent > 80
-              ? "rgb(74, 222, 128)"
-              : confPercent > 50
-              ? "rgb(250, 204, 21)"
-              : "rgb(248, 113, 113)";
 
           return (
-            <section>
-              <div className="flex items-center justify-between mb-6">
-                <div className="text-xs tracking-[0.3em] uppercase text-neutral-500">
-                  02 / Prediction
+            <section className="animate-fade-up">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-600 font-medium">
+                  Predicted Structure
                 </div>
-                <div className="flex items-center gap-4 text-xs text-neutral-600">
-                  {results.demo_mode && (
-                    <span className="px-2 py-0.5 border border-white/10 rounded text-[10px] tracking-wider uppercase">
-                      Demo
-                    </span>
-                  )}
-                  <span>
-                    Modalities:{" "}
-                    {results.modalities_used.map((m) => m.toUpperCase()).join(" + ")}
+                <div className="flex-1 h-px bg-white/[0.06]" />
+                {results.demo_mode && (
+                  <span className="px-2.5 py-1 border border-white/[0.08] rounded text-[9px] tracking-[0.15em] uppercase text-neutral-600 bg-white/[0.02]">
+                    Demo
                   </span>
-                </div>
+                )}
               </div>
 
-              <div className="border border-white/10 rounded-lg overflow-hidden">
-                {/* Confidence bar */}
-                <div className="px-6 py-4 border-b border-white/10">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-white">
-                      {prediction.name}
-                    </span>
-                    <span
-                      className="text-lg font-bold tabular-nums"
-                      style={{ color: confColor }}
-                    >
-                      {confPercent.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${confPercent}%`,
-                        backgroundColor: confColor,
-                      }}
-                    />
+              <div className="result-card border border-white/[0.08] rounded-xl overflow-hidden">
+                {/* Molecule header */}
+                <div className="px-6 py-5 border-b border-white/[0.06]">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-bold text-white mb-1">
+                        {prediction.name}
+                      </h2>
+                      <div className="flex items-center gap-3">
+                        {prediction.valid && (
+                          <span className="inline-flex items-center gap-1.5 text-[10px] tracking-wider uppercase text-emerald-400/70">
+                            <span className="w-1 h-1 rounded-full bg-emerald-400/70" />
+                            RDKit Verified
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-xs text-neutral-600">
+                      {results.modalities_used.map((m) => m.toUpperCase()).join(" + ")}
+                    </div>
                   </div>
                 </div>
 
-                {/* Molecule info */}
-                <div className="px-6 py-4 border-b border-white/10 space-y-2">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-neutral-500 w-20">SMILES</span>
-                    <code className="text-sm font-mono text-white break-all">
-                      {prediction.smiles}
-                    </code>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-neutral-500 w-20">Valid</span>
-                    <span className={`text-sm ${prediction.valid ? "text-green-400" : "text-red-400"}`}>
-                      {prediction.valid ? "Yes (RDKit-verified)" : "No"}
-                    </span>
-                  </div>
+                {/* SMILES */}
+                <div className="px-6 py-3 border-b border-white/[0.06] bg-white/[0.01]">
+                  <code className="text-xs font-mono text-neutral-400 break-all">
+                    {prediction.smiles}
+                  </code>
                 </div>
 
                 {/* Inline 3D Viewer */}
                 {prediction.conformer_sdf && (
-                  <div className="border-b border-white/10">
+                  <div className="border-b border-white/[0.06]">
                     <Inline3DViewer sdf={prediction.conformer_sdf} />
                   </div>
                 )}
 
                 {/* Footer */}
                 <div className="px-6 py-3 flex items-center justify-between">
-                  <span className="text-xs text-neutral-600">
+                  <span className="text-[10px] text-neutral-600 tracking-wide">
                     Drag to rotate · Scroll to zoom
                   </span>
                   {prediction.conformer_sdf && (
                     <button
                       onClick={() => setShowViewer(true)}
-                      className="text-xs text-blue-400/70 hover:text-blue-400 transition-colors"
+                      className="text-[10px] tracking-wider uppercase text-neutral-500 hover:text-white transition-colors"
                     >
-                      Expand 3D View
+                      Expand View
                     </button>
                   )}
                 </div>
@@ -335,8 +329,6 @@ export default function Home() {
           sdf={results.candidates[0].conformer_sdf}
           smiles={results.candidates[0].smiles}
           name={results.candidates[0].name}
-          score={results.candidates[0].score}
-          rank={results.candidates[0].rank}
           onClose={() => setShowViewer(false)}
         />
       )}

@@ -121,17 +121,25 @@ def health():
     return {"status": "ok", "demo_mode": DEMO_MODE, "fixtures_available": fixtures_ok}
 
 
+DEMO_MOLECULES = [
+    "aspirin", "ibuprofen", "acetaminophen", "dopamine",
+    "cholesterol", "vanillin", "nicotine", "morphine",
+    "serotonin", "glucose", "melatonin", "epinephrine",
+    "codeine", "naproxen", "lidocaine", "quinine",
+    "penicillin_g", "warfarin", "curcumin", "capsaicin",
+]
+
 @app.get("/fixtures")
 def list_fixtures():
-    """List demo molecules that have precomputed candidates."""
+    """List curated demo molecules."""
     molecules = []
-    for f in sorted(FIXTURES_DIR.glob("*.json")):
+    for name in DEMO_MOLECULES:
+        f = FIXTURES_DIR / f"{name}.json"
+        if not f.exists():
+            continue
         try:
             with open(f) as fh:
                 data = json.load(fh)
-            if not data.get("candidates"):
-                continue
-            name = f.stem
             molecules.append({
                 "name": name,
                 "display_name": data.get("display_name", name.replace("_", " ").title()),
@@ -203,15 +211,13 @@ def _predict_demo(req: PredictRequest, modalities_used: List[str]) -> PredictRes
         fixture = json.load(f)
 
     if not modalities_used:
-        variants = fixture.get("variants", {})
-        if variants:
-            modalities_used = list(variants.keys())[0].split("_")
-        else:
-            modalities_used = ["nmr"]
-
-    variant_key = "_".join(sorted(modalities_used))
-    candidates_data = fixture.get("variants", {}).get(variant_key,
-                      fixture.get("candidates", []))
+        # No spectra uploaded — use the default candidates (all modalities, correct at rank 1)
+        modalities_used = ["nmr", "ms"]
+        candidates_data = fixture.get("candidates", [])
+    else:
+        variant_key = "_".join(sorted(modalities_used))
+        candidates_data = fixture.get("variants", {}).get(variant_key,
+                          fixture.get("candidates", []))
 
     top_level_candidates = fixture.get("candidates", [])
     candidates_list = []

@@ -355,49 +355,66 @@ def build_fixture(mol_info: dict) -> dict:
             "conformer_sdf": sdf,
         }
 
+    # Use molecule name as seed for reproducible but varied scores
+    import hashlib
+    seed = int(hashlib.md5(name.encode()).hexdigest()[:8], 16)
+    rng = __import__("random").Random(seed)
+
+    def jitter(base, spread=0.03):
+        """Add small random variation to a score, clamped to [0.05, 0.99]."""
+        return round(max(0.05, min(0.99, base + rng.uniform(-spread, spread))), 3)
+
+    def decay_scores(top, count, base_step=0.04, spread=0.02):
+        """Generate descending scores with random gaps between them."""
+        scores = [top]
+        for _ in range(count - 1):
+            step = base_step + rng.uniform(-spread, spread)
+            scores.append(round(max(0.05, scores[-1] - step), 3))
+        return scores
+
     # Variant: nmr only — correct answer ranked at position 3
-    nmr_top = 0.61
-    nmr_step = 0.04
-    nmr_candidates = [make_candidate(smiles, 3, round(nmr_top - 2 * nmr_step, 3), display_name, True)]
+    nmr_top = jitter(0.61, 0.06)  # range ~0.55-0.67
+    nmr_scores = decay_scores(nmr_top, 10, base_step=0.04, spread=0.02)
+    correct_nmr_score = nmr_scores[2]  # rank 3
+    nmr_candidates = [make_candidate(smiles, 3, correct_nmr_score, display_name, True)]
     distractor_idx = 0
     for rank in range(1, 11):
         if rank == 3:
-            continue  # correct answer already placed here
+            continue
         if distractor_idx < len(distractors):
             d_smi, d_name = distractors[distractor_idx]
-            score = round(nmr_top - (rank - 1) * nmr_step, 3)
-            nmr_candidates.append(make_candidate(d_smi, rank, score, d_name))
+            nmr_candidates.append(make_candidate(d_smi, rank, nmr_scores[rank - 1], d_name))
             distractor_idx += 1
     nmr_candidates.sort(key=lambda c: c["rank"])
 
     # Variant: ms only — correct answer at rank 2
-    ms_top = 0.75
-    ms_step = 0.04
-    ms_candidates = [make_candidate(smiles, 2, round(ms_top - 1 * ms_step, 3), display_name, True)]
+    ms_top = jitter(0.75, 0.06)  # range ~0.69-0.81
+    ms_scores = decay_scores(ms_top, 10, base_step=0.04, spread=0.02)
+    correct_ms_score = ms_scores[1]  # rank 2
+    ms_candidates = [make_candidate(smiles, 2, correct_ms_score, display_name, True)]
     distractor_idx = 0
     for rank in range(1, 11):
         if rank == 2:
             continue
         if distractor_idx < len(distractors):
             d_smi, d_name = distractors[distractor_idx]
-            score = round(ms_top - (rank - 1) * ms_step, 3)
-            ms_candidates.append(make_candidate(d_smi, rank, score, d_name))
+            ms_candidates.append(make_candidate(d_smi, rank, ms_scores[rank - 1], d_name))
             distractor_idx += 1
     ms_candidates.sort(key=lambda c: c["rank"])
 
     # Variant: nmr + ms — correct answer rank 1
-    nmr_ms_top = 0.89
-    nmr_ms_step = 0.05
-    nmr_ms_candidates = [make_candidate(smiles, 1, nmr_ms_top, display_name, True)] + [
-        make_candidate(d_smi, i + 2, round(nmr_ms_top - (i + 1) * nmr_ms_step, 3), d_name)
+    nmr_ms_top = jitter(0.89, 0.05)  # range ~0.84-0.94
+    nmr_ms_scores = decay_scores(nmr_ms_top, 10, base_step=0.05, spread=0.025)
+    nmr_ms_candidates = [make_candidate(smiles, 1, nmr_ms_scores[0], display_name, True)] + [
+        make_candidate(d_smi, i + 2, nmr_ms_scores[i + 1], d_name)
         for i, (d_smi, d_name) in enumerate(distractors)
     ]
 
     # Variant: all three — correct answer rank 1, highest score
-    all_top = 0.95
-    all_step = 0.05
-    all_candidates = [make_candidate(smiles, 1, all_top, display_name, True)] + [
-        make_candidate(d_smi, i + 2, round(all_top - (i + 1) * all_step, 3), d_name)
+    all_top = jitter(0.95, 0.03)  # range ~0.92-0.98
+    all_scores = decay_scores(all_top, 10, base_step=0.05, spread=0.025)
+    all_candidates = [make_candidate(smiles, 1, all_scores[0], display_name, True)] + [
+        make_candidate(d_smi, i + 2, all_scores[i + 1], d_name)
         for i, (d_smi, d_name) in enumerate(distractors)
     ]
 

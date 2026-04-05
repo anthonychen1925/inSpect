@@ -20,8 +20,6 @@ export default function CandidateCard({
   onClick,
   isCorrect,
 }: CandidateCardProps) {
-  const barWidth = Math.max(candidate.score * 100, 2);
-
   return (
     <div
       className={`group border rounded-lg p-4 cursor-pointer transition-all hover:border-white/30 hover:bg-white/[0.02] ${
@@ -58,22 +56,7 @@ export default function CandidateCard({
             </div>
           </div>
         </div>
-        <div className="text-right shrink-0 ml-4">
-          <div className="text-lg font-bold tabular-nums">
-            {candidate.score.toFixed(2)}
-          </div>
-          <div className="text-[9px] tracking-wider uppercase text-neutral-600">
-            confidence
-          </div>
         </div>
-      </div>
-
-      {/* Score bar */}
-      <div className="h-[2px] bg-white/5 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-white/30 rounded-full transition-all"
-          style={{ width: `${barWidth}%` }}
-        />
       </div>
     </div>
   );

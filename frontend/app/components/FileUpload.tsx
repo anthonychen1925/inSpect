@@ -11,7 +11,7 @@ interface FileUploadProps {
 
 export default function FileUpload({
   label,
-  accept = ".csv",
+  accept = ".csv,.jpg,.jpeg,.png",
   onFile,
   file,
 }: FileUploadProps) {
@@ -30,9 +30,9 @@ export default function FileUpload({
 
   return (
     <div
-      className={`drop-zone rounded-lg p-6 text-center cursor-pointer transition-all ${
+      className={`drop-zone rounded-xl p-8 text-center cursor-pointer transition-all ${
         dragOver ? "drag-over" : ""
-      } ${file ? "border-white/30" : ""}`}
+      } ${file ? "border-white/20 bg-white/[0.03]" : ""}`}
       onDragOver={(e) => {
         e.preventDefault();
         setDragOver(true);
@@ -51,25 +51,27 @@ export default function FileUpload({
           onFile(f);
         }}
       />
-      <div className="text-xs tracking-[0.2em] uppercase text-neutral-500 mb-2">
+
+      <div className="text-[10px] tracking-[0.2em] uppercase text-neutral-500 mb-3">
         {label}
       </div>
+
       {file ? (
-        <div className="flex items-center justify-center gap-2">
-          <span className="text-sm text-white">{file.name}</span>
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-sm text-white/90">{file.name}</span>
           <button
-            className="text-neutral-500 hover:text-white text-xs"
+            className="text-neutral-600 hover:text-white text-xs transition-colors"
             onClick={(e) => {
               e.stopPropagation();
               onFile(null);
             }}
           >
-            x
+            remove
           </button>
         </div>
       ) : (
-        <div className="text-sm text-neutral-600">
-          Drop CSV or click to browse
+        <div className="text-xs text-neutral-600">
+          Drop CSV or image, or click to browse
         </div>
       )}
     </div>
