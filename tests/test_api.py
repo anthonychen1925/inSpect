@@ -4,10 +4,7 @@ Backend API tests.
 Run:  python -m pytest tests/test_api.py -v
 """
 import base64
-import json
 from pathlib import Path
-
-import pytest
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "data" / "fixtures"
 SPECTRA_DIR = FIXTURES_DIR / "spectra"
@@ -32,8 +29,9 @@ class TestHealth:
         assert r.status_code == 200
         data = r.json()
         assert data["status"] == "ok"
-        assert "demo_mode" in data
         assert "fixtures_available" in data
+        assert data["mist_available"] in (True, False)
+        assert "mist_checkpoint_loaded" in data
 
     def test_health_fixtures_present(self, client):
         r = client.get("/health")
@@ -47,13 +45,13 @@ class TestFixtures:
         molecules = r.json()["molecules"]
         assert len(molecules) == 20
         names = [m["name"] for m in molecules]
-        assert "caffeine" in names
-        assert "ethanol" in names
+        assert "aspirin" in names
+        assert "vanillin" in names
 
     def test_fixture_metadata_fields(self, client):
         r = client.get("/fixtures")
         mol = r.json()["molecules"][0]
-        for key in ["name", "display_name", "formula", "smiles", "mw", "has_nmr", "has_ms", "nmr_csv", "ms_csv"]:
+        for key in ["name", "display_name", "formula", "smiles", "mw", "has_nmr", "has_ms"]:
             assert key in mol, f"Missing field: {key}"
 
     def test_get_fixture_detail(self, client):
@@ -97,114 +95,59 @@ class TestSpectra:
 
 
 # ---------------------------------------------------------------------------
-# Demo-mode predict
+# Predict — always runs inference on uploaded peaks
 # ---------------------------------------------------------------------------
 
-class TestPredictDemo:
-    def test_predict_by_name(self, client):
-        r = client.post("/predict", json={"demo_molecule": "caffeine", "top_k": 10})
+class TestPredictInference:
+    def test_predict_ms_only(self, client):
+        ms_b64 = _load_spectrum_b64("caffeine_ms.csv")
+        r = client.post("/predict", json={"ms_csv": ms_b64, "top_k": 10})
         assert r.status_code == 200
         data = r.json()
-        assert data["demo_mode"] is True
+        assert data["inference_engine"] in ("mist", "spectral_similarity")
         assert len(data["candidates"]) == 10
         assert data["candidates"][0]["rank"] == 1
+        assert data["modalities_used"] == ["ms"]
 
-    def test_predict_top_k_clamped(self, client):
-        r = client.post("/predict", json={"demo_molecule": "caffeine", "top_k": 100})
-        assert r.status_code == 200
-        assert len(r.json()["candidates"]) <= 20
-
-    def test_predict_with_nmr_csv(self, client):
-        csv_b64 = _b64("ppm,intensity\n3.35,100\n7.69,100\n")
-        r = client.post("/predict", json={
-            "nmr_csv": csv_b64,
-            "demo_molecule": "caffeine",
-        })
+    def test_predict_nmr_only(self, client):
+        nmr_b64 = _load_spectrum_b64("aspirin_nmr.csv")
+        r = client.post("/predict", json={"nmr_csv": nmr_b64, "top_k": 5})
         assert r.status_code == 200
         data = r.json()
-        assert "nmr" in data["modalities_used"]
-        assert data["demo_mode"] is True
+        assert data["inference_engine"] == "spectral_similarity"
+        assert len(data["candidates"]) == 5
+        assert data["modalities_used"] == ["nmr"]
 
-    def test_predict_nmr_ms_variant(self, client):
-        csv_b64 = _b64("ppm,intensity\n3.35,100\n")
-        r = client.post("/predict", json={
-            "nmr_csv": csv_b64,
-            "ms_csv": csv_b64,
-            "demo_molecule": "caffeine",
-        })
+    def test_predict_nmr_ms(self, client):
+        ms_b64 = _load_spectrum_b64("caffeine_ms.csv")
+        nmr_b64 = _load_spectrum_b64("caffeine_nmr.csv")
+        r = client.post(
+            "/predict",
+            json={"ms_csv": ms_b64, "nmr_csv": nmr_b64, "top_k": 10},
+        )
+        assert r.status_code == 200
         data = r.json()
         assert set(data["modalities_used"]) == {"nmr", "ms"}
-        top_smiles = data["candidates"][0]["smiles"]
-        assert top_smiles == "Cn1cnc2c1c(=O)n(c(=O)n2C)C"
+        assert len(data["candidates"]) == 10
+
+    def test_predict_top_k(self, client):
+        ms_b64 = _load_spectrum_b64("caffeine_ms.csv")
+        r = client.post("/predict", json={"ms_csv": ms_b64, "top_k": 3})
+        assert r.status_code == 200
+        assert len(r.json()["candidates"]) == 3
 
     def test_predict_conformer_sdf_present(self, client):
-        csv_b64 = _b64("ppm,intensity\n3.35,100\n")
-        r = client.post("/predict", json={
-            "nmr_csv": csv_b64,
-            "ms_csv": csv_b64,
-            "demo_molecule": "caffeine",
-            "top_k": 1,
-        })
+        ms_b64 = _load_spectrum_b64("caffeine_ms.csv")
+        r = client.post("/predict", json={"ms_csv": ms_b64, "top_k": 1})
         cand = r.json()["candidates"][0]
-        assert cand["conformer_sdf"] is not None
+        assert cand.get("conformer_sdf") is not None
         assert "RDKit" in cand["conformer_sdf"]
 
-    def test_predict_warning_when_modalities_missing(self, client):
-        csv_b64 = _b64("ppm,intensity\n3.35,100\n")
-        r = client.post("/predict", json={
-            "nmr_csv": csv_b64,
-            "demo_molecule": "aspirin",
-        })
-        data = r.json()
-        assert data["warning"] is not None
-        assert "MS" in data["warning"]
-
-    def test_predict_fallback_fixture(self, client):
-        r = client.post("/predict", json={"demo_molecule": "nonexistent_xyz"})
+    def test_predict_warning_single_modality(self, client):
+        csv_b64 = _b64("ppm,intensity\n3.35,100\n7.69,100\n")
+        r = client.post("/predict", json={"nmr_csv": csv_b64, "top_k": 5})
         assert r.status_code == 200
-        assert "fallback" in r.json()["warning"].lower()
-
-    def test_ethanol_no_self_distractor(self, client):
-        r = client.post("/predict", json={"demo_molecule": "ethanol", "top_k": 10})
-        data = r.json()
-        smiles_list = [c["smiles"] for c in data["candidates"]]
-        assert smiles_list.count("CCO") == 1, "Ethanol SMILES should appear exactly once"
-
-
-# ---------------------------------------------------------------------------
-# Live-mode predict
-# ---------------------------------------------------------------------------
-
-class TestPredictLive:
-    def test_live_predict_ms(self, client):
-        import backend.main as bm
-        old = bm.DEMO_MODE
-        bm.DEMO_MODE = False
-        try:
-            ms_b64 = _load_spectrum_b64("caffeine_ms.csv")
-            r = client.post("/predict", json={"ms_csv": ms_b64, "top_k": 10})
-            assert r.status_code == 200
-            data = r.json()
-            assert data["demo_mode"] is False
-            assert len(data["candidates"]) == 10
-            assert data["candidates"][0]["smiles"] == "Cn1cnc2c1c(=O)n(c(=O)n2C)C"
-            assert data["candidates"][0]["score"] > 0.9
-        finally:
-            bm.DEMO_MODE = old
-
-    def test_live_predict_nmr(self, client):
-        import backend.main as bm
-        old = bm.DEMO_MODE
-        bm.DEMO_MODE = False
-        try:
-            nmr_b64 = _load_spectrum_b64("aspirin_nmr.csv")
-            r = client.post("/predict", json={"nmr_csv": nmr_b64, "top_k": 3})
-            assert r.status_code == 200
-            data = r.json()
-            assert data["demo_mode"] is False
-            assert len(data["candidates"]) == 3
-        finally:
-            bm.DEMO_MODE = old
+        assert r.json()["warning"] is not None
 
 
 # ---------------------------------------------------------------------------
@@ -216,22 +159,22 @@ class TestPredictErrors:
         r = client.post("/predict", json={"ms_csv": "not-valid-base64!!!"})
         assert r.status_code == 400
 
-    def test_invalid_molecule_name(self, client):
-        r = client.post("/predict", json={"demo_molecule": "../../../etc/passwd"})
-        assert r.status_code == 422
+    def test_no_spectra(self, client):
+        r = client.post("/predict", json={})
+        assert r.status_code == 400
 
-    def test_no_spectra_live_mode(self, client):
-        import backend.main as bm
-        old = bm.DEMO_MODE
-        bm.DEMO_MODE = False
-        try:
-            r = client.post("/predict", json={})
-            assert r.status_code == 400
-        finally:
-            bm.DEMO_MODE = old
+    def test_ir_only_rejected(self, client):
+        ir_b64 = _b64("wavenumber,intensity\n1700,1\n3000,0.5\n")
+        r = client.post("/predict", json={"ir_csv": ir_b64})
+        assert r.status_code == 400
+
+    def test_empty_peaks(self, client):
+        r = client.post("/predict", json={"nmr_csv": _b64("ppm,intensity\n")})
+        assert r.status_code == 400
 
     def test_candidate_schema(self, client):
-        r = client.post("/predict", json={"demo_molecule": "caffeine", "top_k": 1})
+        ms_b64 = _load_spectrum_b64("caffeine_ms.csv")
+        r = client.post("/predict", json={"ms_csv": ms_b64, "top_k": 1})
         cand = r.json()["candidates"][0]
         assert isinstance(cand["smiles"], str)
         assert isinstance(cand["score"], (int, float))

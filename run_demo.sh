@@ -22,7 +22,7 @@ if [ ! -d "data/fixtures" ] || [ -z "$(ls data/fixtures/*.json 2>/dev/null)" ]; 
 fi
 
 echo "Step 1: Starting FastAPI backend on :8000"
-DEMO_MODE=true uvicorn backend.main:app --reload --port 8000 &
+uvicorn backend.main:app --reload --port 8000 &
 BACKEND_PID=$!
 echo "  Backend PID: $BACKEND_PID"
 echo ""

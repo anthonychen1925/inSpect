@@ -1,9 +1,11 @@
 """
-MIST inference wrapper.
+Inference from uploaded spectral peaks.
 
-Tries real MIST model inference when available (pip install -e ".[mist]").
-Falls back to spectral cosine-similarity matching against the fixture library,
-which provides a working live-prediction path without any ML model.
+- **MIST** (optional): if the `mist` extra is installed and a checkpoint path is given,
+  MS spectra are encoded with the pretrained encoder and library molecules are ranked
+  by fingerprint similarity.
+- **Spectral similarity** (default): uploaded MS and/or NMR peaks are binned and
+  compared (cosine) to each reference spectrum in the fixture-derived library.
 """
 import csv
 import io
@@ -153,20 +155,23 @@ def predict_live(
     ir_peaks: Optional[List[Tuple[float, float]]] = None,
     top_k: int = 5,
     model_ckpt: Optional[str] = None,
-) -> List[dict]:
+) -> Tuple[List[dict], str]:
     """
-    Run live inference.
+    Run inference on uploaded peak lists.
 
-    Returns a list of candidate dicts:
-      [{"smiles": ..., "score": ..., "rank": ..., "valid": ..., "conformer_sdf": ...}, ...]
+    Returns (candidates, engine) where engine is "mist" or "spectral_similarity".
     """
-    if MIST_AVAILABLE and model_ckpt and Path(model_ckpt).exists():
+    ckpt_ok = bool(model_ckpt and Path(model_ckpt).exists())
+    if MIST_AVAILABLE and ckpt_ok and ms_peaks and model_ckpt:
         try:
-            return _predict_mist(ms_peaks, top_k, model_ckpt)
+            out = _predict_mist(ms_peaks, top_k, model_ckpt)
+            if out:
+                return out, "mist"
         except Exception as e:
             logger.warning("MIST inference failed, falling back to similarity: %s", e)
 
-    return _predict_similarity(ms_peaks, nmr_peaks, ir_peaks, top_k)
+    sim = _predict_similarity(ms_peaks, nmr_peaks, ir_peaks, top_k)
+    return sim, "spectral_similarity"
 
 
 # ---------------------------------------------------------------------------
@@ -306,10 +311,11 @@ def _predict_similarity(
                 scores[i] += _cosine_similarity(query_nmr, ref_vec)
         n_scored += 1
 
-    # IR: no reference spectra in the library yet, so don't count it in averaging
+    # IR: no reference spectra in the library yet — IR-only input cannot be scored
+    if n_scored == 0:
+        return []
 
-    if n_scored > 0:
-        scores /= n_scored
+    scores /= n_scored
 
     ranked = sorted(enumerate(scores), key=lambda x: -x[1])
     return _build_candidates([(s, i) for i, s in ranked[:top_k]], library)

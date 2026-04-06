@@ -20,18 +20,8 @@ interface Candidate {
 interface PredictResponse {
   candidates: Candidate[];
   modalities_used: string[];
+  inference_engine: string;
   warning: string | null;
-  demo_mode: boolean;
-}
-
-interface DemoMolecule {
-  name: string;
-  display_name: string;
-  formula: string;
-  smiles: string;
-  mw: number;
-  has_nmr: boolean;
-  has_ms: boolean;
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -85,8 +75,7 @@ function Inline3DViewer({ sdf }: { sdf: string }) {
 export default function Home() {
   const [nmrFile, setNmrFile] = useState<File | null>(null);
   const [msFile, setMsFile] = useState<File | null>(null);
-  const [demoMolecule, setDemoMolecule] = useState<string>("");
-  const [demoMolecules, setDemoMolecules] = useState<DemoMolecule[]>([]);
+  const [irFile, setIrFile] = useState<File | null>(null);
 
   const [results, setResults] = useState<PredictResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -100,11 +89,7 @@ export default function Home() {
   useEffect(() => {
     axios
       .get(`${API}/health`)
-      .then(() => {
-        setApiStatus("online");
-        return axios.get(`${API}/fixtures`);
-      })
-      .then((res) => setDemoMolecules(res.data.molecules))
+      .then(() => setApiStatus("online"))
       .catch(() => setApiStatus("offline"));
   }, []);
 
@@ -116,15 +101,12 @@ export default function Home() {
     try {
       const body: Record<string, unknown> = {};
 
-      if (demoMolecule) {
-        body.demo_molecule = demoMolecule;
-      }
-
       if (nmrFile) body.nmr_csv = await fileToBase64(nmrFile);
       if (msFile) body.ms_csv = await fileToBase64(msFile);
+      if (irFile) body.ir_csv = await fileToBase64(irFile);
 
-      if (!demoMolecule && !nmrFile && !msFile) {
-        setError("Upload at least one spectrum or select a demo molecule.");
+      if (!nmrFile && !msFile && !irFile) {
+        setError("Upload at least one spectrum CSV (NMR, MS, and/or IR). IR alone is not sufficient.");
         setLoading(false);
         return;
       }
@@ -140,12 +122,6 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function handleDemoSelect(name: string) {
-    setDemoMolecule(name === demoMolecule ? "" : name);
-    setResults(null);
-    setError(null);
   }
 
   return (
@@ -178,8 +154,8 @@ export default function Home() {
           </h1>
 
           <p className="text-sm max-w-lg leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            Upload NMR or MS spectral data and predict molecular structures
-            with 3D conformer visualization.
+            Upload NMR and/or MS spectral CSVs (two columns + header). Predictions are computed from
+            your files against the reference library; optional IR is accepted for future scoring.
           </p>
         </div>
       </section>
@@ -194,41 +170,10 @@ export default function Home() {
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
             <FileUpload label="NMR Spectrum" onFile={setNmrFile} file={nmrFile} />
             <FileUpload label="MS Spectrum" onFile={setMsFile} file={msFile} />
-          </div>
-        </section>
-
-        {/* Demo Molecules */}
-        <section className="mb-12">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="text-[10px] tracking-[0.3em] uppercase font-medium" style={{ color: "var(--text-muted)" }}>
-              Demo Molecules
-            </div>
-            <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {demoMolecules.map((mol) => (
-              <button
-                key={mol.name}
-                className={`mol-pill px-3.5 py-2 text-xs border rounded-lg transition-all ${
-                  demoMolecule === mol.name ? "active" : ""
-                }`}
-                style={{
-                  borderColor: demoMolecule === mol.name ? "var(--border-strong)" : "var(--border)",
-                  color: demoMolecule === mol.name ? "var(--text-primary)" : "var(--text-secondary)",
-                  background: demoMolecule === mol.name ? "var(--hover-bg)" : "transparent",
-                }}
-                onClick={() => handleDemoSelect(mol.name)}
-              >
-                <span>{mol.display_name}</span>
-                {demoMolecule === mol.name && (
-                  <span className="ml-2 text-[10px]" style={{ color: "var(--text-muted)" }}>{mol.formula}</span>
-                )}
-              </button>
-            ))}
+            <FileUpload label="IR Spectrum (optional)" onFile={setIrFile} file={irFile} />
           </div>
         </section>
 
@@ -285,16 +230,23 @@ export default function Home() {
               <div className="text-xs" style={{ color: "var(--text-muted)" }}>
                 {results.modalities_used.map((m) => m.toUpperCase()).join(" + ")}
               </div>
-              {results.demo_mode && (
-                <span className="px-2.5 py-1 rounded text-[9px] tracking-[0.15em] uppercase" style={{
+              <span
+                className="px-2.5 py-1 rounded text-[9px] tracking-[0.12em] uppercase max-w-[14rem] truncate"
+                style={{
                   border: "1px solid var(--border)",
                   color: "var(--text-muted)",
                   background: "var(--card-bg)",
-                }}>
-                  Demo
-                </span>
-              )}
+                }}
+                title={results.inference_engine}
+              >
+                {results.inference_engine.replace(/_/g, " ")}
+              </span>
             </div>
+            {results.warning && (
+              <p className="text-xs mb-6 leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                {results.warning}
+              </p>
+            )}
 
             {/* Top prediction with 3D viewer */}
             {(() => {

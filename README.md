@@ -22,8 +22,8 @@ python scripts/fetch_demo_data.py
 # 3. Build fixture JSONs + conformers
 python scripts/build_fixtures.py
 
-# 4. Start API (demo mode — no ML needed)
-DEMO_MODE=true uvicorn backend.main:app --reload --port 8000
+# 4. Start API (inference uses uploaded CSVs; optional MIST via MIST_CKPT)
+uvicorn backend.main:app --reload --port 8000
 
 # 5. Start frontend
 cd frontend && npm install && npm run dev
@@ -59,12 +59,11 @@ acetone, toluene
 ## API
 `POST /predict` — accepts base64-encoded CSV spectra, returns top-10 candidates
 `GET  /fixtures` — lists available demo molecules
-`GET  /health`   — health check
+`GET  /health`   — health check (reports MIST availability / checkpoint)
 
 ## Demo flow (rehearse twice!)
 1. Open site → clean landing page
-2. Upload caffeine NMR CSV
-3. Show top-10 candidates (correct molecule in top-3)
-4. Add MS input → correct molecule moves to #1
-5. Click top-1 → show 3D conformer in viewer
-6. Ablation: NMR alone vs NMR+MS vs all three
+2. Upload `data/fixtures/spectra/caffeine_nmr.csv` (and optionally `caffeine_ms.csv`)
+3. Show top-k ranked candidates from spectral similarity (or MIST when `MIST_CKPT` is set)
+4. Click top-1 → show 3D conformer in viewer
+5. Compare NMR-only vs NMR+MS inputs
